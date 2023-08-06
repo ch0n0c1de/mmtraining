@@ -93,22 +93,6 @@ for i in range(0, val_rows-window_length):
     x_val[i] = scaled_val_samples.iloc[i : i+window_length, 0 : number_of_features]
     y_val[i] = scaled_val_samples.iloc[i+window_length : i+window_length+1, 0 : number_of_features]
 
-def custom_loss(y_true, y_pred):
-    mask = tf.math.logical_and(
-        tf.math.logical_and(y_true >= minimum_value, y_true <= maximum_value),
-        tf.math.logical_and(y_pred >= minimum_value, y_pred <= maximum_value)
-    )
-
-    loss1 = tf.math.squared_difference(y_true, y_pred)
-
-    masked_loss = tf.where(mask, 1000 * loss1, tf.zeros_like(y_pred))
-    masked_mean_loss = tf.reduce_mean(masked_loss)
-
-    loss2 = keras.losses.mean_squared_error(y_true, y_pred)
-    mean_loss2 = tf.reduce_mean(loss2)
-
-    return masked_mean_loss + mean_loss2
-
 
 def custom_loss_integer(y_true, y_pred):
     # Mean Squared Error term
@@ -258,32 +242,6 @@ for i in range(1,10):
   print('GoundTruth:\t', np.array(y_test_true)[0])
   print('-' * 40)
 
-def run_prediction(drawingstopredict):
-
-    print('Generating ',drawingstopredict, ' predictions, based on ', window_length, ' last numbers:')
-
-    for z in range(1, drawingstopredict):
-        next = df.copy()
-        print('Predict the Future Drawing')
-        next = next.tail(window_length + z - 1).head(window_length)
-        lastrow = next.iloc[window_length-1].tolist()
-        print('last game out of ', window_length, ' used in the prediction >>>', lastrow)
-        next = np.array(next)
-        #print(next)
-        x_next = scaler.transform(next)
-        y_next_pred = model.predict(np.array([x_next]))
-
-        y_next_pred_reshaped = y_next_pred.reshape(-1, y_next_pred.shape[-1])
-        y_next_pred_inverse = scaler.inverse_transform(y_next_pred_reshaped)
-        y_next_pred_inverse = y_next_pred_inverse.astype(int)
-        y_next_pred_inverse = y_next_pred_inverse.reshape(y_next_pred.shape)
-
-        #y_next_pred = custom_predict(model,np.array([x_next]))
-        print('Predicted Game #:', z)
-        print('Prediction without rounding up:\t', y_next_pred_inverse[0][0])
-        print('Prediction with rounding up:\t', y_next_pred_inverse[0][0]+1)
-        print('-' * 40)
-
 def run_prediction(drawingstopredict, windowsize):
 
     print('Generating ',drawingstopredict, ' predictions, based on ', windowsize, ' last numbers:')
@@ -312,73 +270,4 @@ def run_prediction(drawingstopredict, windowsize):
         print('Prediction with rounding down:\t', y_next_pred_inverse[0][0]-1)
         print('-' * 40)
 
-
-def run_window_test(window_sample_size, previous_drawings):
-    print('Calculating window-size ', window_sample_size,
-          ' predictions, based on ', previous_drawings, ' last numbers:')
-
-    mse_dict = {}
-    nextw = df1.copy()
-    #print('nextw shape out of loop', nextw.shape)
-
-    for n in range(0, previous_drawings):
-
-        last_row = nextw.iloc[-1]
-        current_row = nextw.iloc[n - 1]
-        print('Last game out of ', window_length,
-              ' used in the prediction: ', last_row.tolist(),
-              '. Current row: ', current_row.tolist())
-
-        current_row_np = np.array(current_row)
-
-        for w in range(2, window_sample_size):
-            train_temp_window = nextw.tail(w+1)[:-1]
-            print('Window size:', w)
-
-            nextw_np = np.array(train_temp_window)
-            x_nextw = scaler.transform(nextw_np)
-            y_next_predw = model.predict(np.array([x_nextw]))
-
-            pred = scaler.inverse_transform(y_next_predw).astype(int)[0]+1
-            pred_round_up = scaler.inverse_transform(y_next_predw).astype(int)[0] + 1
-            pred_round_down = scaler.inverse_transform(y_next_predw).astype(int)[0] - 1
-
-            set1 = set(current_row.tolist())
-            set2 = set(pred)
-
-            intersection = len(set1.intersection(set2))
-            mse_pred = intersection / float(len(set1) + len(set2) - intersection)
-
-            print('Similarity: ', mse_pred)
-            mse_dict[w] = mse_pred
-
-            print('Predicted value: ', pred)
-            print('Ground Truth: ', set1)
-
-    # Find window size with minimum MSE
-    if mse_dict:  # Checks if the dictionary is not empty
-        ideal_window_size = max(mse_dict, key=mse_dict.get)
-        print('Ideal window size based on MSE:', ideal_window_size)
-    else:
-        print("mse_dict is empty. Cannot calculate minimum.")
-        ideal_window_size = None
-
-    if mse_dict:  # Checks if the dictionary is not empty
-        sorted_dict = dict(sorted(mse_dict.items(), key=lambda item: item[1], reverse=True))
-        top_30_window_sizes = list(sorted_dict.keys())[:30]
-        print('Top 30 window sizes based on MSE:', top_30_window_sizes )
-    else:
-        print("mse_dict is empty. Cannot calculate minimum.")
-        top_30_window_sizes = None
-
-    return ideal_window_size
-
-#from tensorflow.keras.models import load_model
-#model = load_model('/Users/tiagolee/PycharmProjects/MegaMillion/megamillion.keras')
-
-
 run_prediction(10,window_length)
-#run_prediction(3,70)
-
-#run_window_test(10,1)
-#detect_window_size(model,x_train, y_train)
